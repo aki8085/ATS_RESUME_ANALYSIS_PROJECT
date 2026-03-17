@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Home — ATS Analyzer</title>
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"/>
+</head>
+<body class="dot-bg">
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="ni">🎯</div>
+    <span>ATS Analyzer</span>
+  </div>
+  <div class="nav-links">
+    <a href="/home"     class="nav-link active">Home</a>
+    <a href="/analyze"  class="nav-link">Analyze</a>
+    <a href="/history"  class="nav-link">History</a>
+  </div>
+  <div class="nav-right">
+    {% if avatar %}
+      <img src="{{ avatar }}" class="nav-avatar" alt="avatar"/>
+    {% else %}
+      <div class="nav-avatar-placeholder">{{ name[0].upper() }}</div>
+    {% endif %}
+    <a href="/logout" class="btn-logout-nav">Logout</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="hero">
+    
+    <h1>Your resume,<br/><em>perfectly optimised</em></h1>
+    <p>Upload your resume, paste a job description and get your ATS match score, missing keywords, and actionable improvement tips — instantly.</p>
+    <div class="cta-row">
+      <a href="/analyze" class="btn-cta btn-cta-dark">Start Analyzing →</a>
+      <a href="/history" class="btn-cta btn-cta-outline">View History</a>
+    </div>
+  </div>
+
+  <div class="feature-grid">
+    <div class="feat-card">
+      <div class="fc-icon">📄</div>
+      <h3>Upload Resume</h3>
+      <p>Supports PDF, DOCX and TXT formats. Text is extracted automatically.</p>
+    </div>
+    <div class="feat-card">
+      <div class="fc-icon">🎯</div>
+      <h3>ATS Score</h3>
+      <p>Real-time match score against any job description from 0 to 100.</p>
+    </div>
+    <div class="feat-card">
+      <div class="fc-icon">🔑</div>
+      <h3>Keyword Gap</h3>
+      <p>See exactly which keywords recruiters want that are missing from your resume.</p>
+    </div>
+    <div class="feat-card">
+      <div class="fc-icon">📊</div>
+      <h3>Full History</h3>
+      <p>Every analysis is saved to your account so you can track improvement over time.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Analyze — ATS Analyzer</title>
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"/>
+</head>
+<body class="dot-bg">
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="ni">🎯</div>
+    <span>ATS Analyzer</span>
+  </div>
+  <div class="nav-links">
+    <a href="/home"    class="nav-link">Home</a>
+    <a href="/analyze" class="nav-link active">Analyze</a>
+    <a href="/history" class="nav-link">History</a>
+  </div>
+  <div class="nav-right">
+    {% if avatar %}
+      <img src="{{ avatar }}" class="nav-avatar" alt="avatar"/>
+    {% else %}
+      <div class="nav-avatar-placeholder">{{ name[0].upper() }}</div>
+    {% endif %}
+    <a href="/logout" class="btn-logout-nav">Logout</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+<div class="analyze-wrap">
+
+  <h1 class="page-title">Analyze Resume</h1>
+  <p class="page-sub">Upload your resume and optionally paste a job description for a full ATS score.</p>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="card-title">📄 Resume File</div>
+    <div class="upload-zone" id="drop-zone">
+      <input type="file" id="resume-file" accept=".pdf,.docx,.txt"/>
+      <div class="upload-icon">☁️</div>
+      <p><strong>Click to upload</strong> or drag & drop</p>
+      <p style="margin-top:5px">PDF · DOCX · TXT — max 10 MB</p>
+      <div id="file-name"></div>
+    </div>
+  </div>
+
+  <!-- JD -->
+  <div class="card">
+    <div class="card-title">📋 Job Description <span style="font-size:.78rem;color:var(--ink-3);font-weight:400">(optional but recommended)</span></div>
+    <textarea class="jd" id="jd-text" placeholder="Paste the job description here to get a keyword match score and gap analysis…"></textarea>
+  </div>
+
+  <div class="err-box" id="err-box"></div>
+
+  <button class="btn-analyze" id="analyze-btn" onclick="runAnalysis()">
+    <span>🚀</span> Analyze Resume
+  </button>
+
+  <!-- Loader -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p>Analyzing your resume…</p>
+  </div>
+
+  <!-- ── RESULTS ── -->
+  <div id="results">
+
+    <!-- Score card -->
+    <div class="card" style="margin-top:28px" id="score-card">
+      <div class="card-title">🎯 ATS Match Score</div>
+      <div class="score-wrap">
+        <div class="score-ring-wrap">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="56" fill="none" stroke="var(--warm)" stroke-width="11"/>
+            <circle id="score-arc" cx="70" cy="70" r="56" fill="none"
+                    stroke="var(--gold)" stroke-width="11"
+                    stroke-dasharray="352" stroke-dashoffset="352"
+                    stroke-linecap="round"
+                    style="transition:stroke-dashoffset 1.2s ease,stroke .4s"/>
+          </svg>
+          <div class="score-num">
+            <span id="score-val">--</span>
+            <span>/ 100</span>
+          </div>
+        </div>
+        <div class="score-label" id="score-label"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="v" id="s-words">--</div><div class="l">Words</div></div>
+        <div class="stat"><div class="v" id="s-tech">--</div><div class="l">Tech Skills</div></div>
+        <div class="stat"><div class="v" id="s-soft">--</div><div class="l">Soft Skills</div></div>
+        <div class="stat"><div class="v" id="s-miss">--</div><div class="l">Missing Keywords</div></div>
+      </div>
+    </div>
+
+    <!-- Sections -->
+    <div class="card">
+      <div class="card-title">📑 Resume Sections</div>
+      <div class="sections-grid" id="sec-grid"></div>
+    </div>
+
+    <!-- Keywords -->
+    <div class="card" id="kw-card">
+      <div class="card-title">🔑 Keyword Analysis</div>
+      <div class="kw-label">✅ Matched from job description</div>
+      <div class="pill-wrap" id="matched-pills"></div>
+      <div class="kw-label">❌ Missing from job description</div>
+      <div class="pill-wrap" id="missing-pills"></div>
+      <div class="kw-label">💬 Soft skills detected</div>
+      <div class="pill-wrap" id="soft-pills"></div>
+    </div>
+
+    <!-- Suggestions -->
+    <div class="card">
+      <div class="card-title">💡 Improvement Suggestions</div>
+      <div id="sug-list"></div>
+    </div>
+
+    <!-- Go to history -->
+    <div style="text-align:center;margin-top:8px">
+      <a href="/history" style="color:var(--gold);font-size:.88rem;font-weight:600;text-decoration:none">
+        📊 View this in History →
+      </a>
+    </div>
+
+  </div><!-- /results -->
+
+</div>
+</div>
+
+<script>
+const zone = document.getElementById('drop-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('over');
+  document.getElementById('resume-file').files = e.dataTransfer.files; showName(); });
+document.getElementById('resume-file').addEventListener('change', showName);
+
+function showName() {
+  const f = document.getElementById('resume-file').files[0];
+  document.getElementById('file-name').textContent = f ? '✅ ' + f.name : '';
+}
+
+async function runAnalysis() {
+  const fi  = document.getElementById('resume-file');
+  const jd  = document.getElementById('jd-text').value.trim();
+  const err = document.getElementById('err-box');
+  err.style.display = 'none';
+
+  if (!fi.files[0]) { err.textContent = '⚠️ Please upload a resume file.'; err.style.display = 'block'; return; }
+
+  const fd = new FormData();
+  fd.append('resume', fi.files[0]);
+  fd.append('job_description', jd);
+
+  document.getElementById('loader').style.display   = 'block';
+  document.getElementById('results').style.display  = 'none';
+  document.getElementById('analyze-btn').disabled   = true;
+
+  try {
+    const res  = await fetch('/analyze', { method:'POST', body:fd });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderResults(data);
+  } catch(e) {
+    err.textContent = '❌ ' + e.message; err.style.display = 'block';
+  } finally {
+    document.getElementById('loader').style.display  = 'none';
+    document.getElementById('analyze-btn').disabled  = false;
+  }
+}
+
+function renderResults(d) {
+  // Score
+  if (d.score !== null) {
+    document.getElementById('score-val').textContent = d.score;
+    const arc    = document.getElementById('score-arc');
+    const offset = 352 - (d.score / 100) * 352;
+    setTimeout(() => arc.style.strokeDashoffset = offset, 80);
+    let color, label;
+    if (d.score >= 75)      { color = '#1a6645'; label = '🟢 Excellent Match'; }
+    else if (d.score >= 55) { color = '#b86020'; label = '🟡 Good Match'; }
+    else                    { color = '#b83232'; label = '🔴 Needs Improvement'; }
+    arc.style.stroke = color;
+    const sl = document.getElementById('score-label');
+    sl.textContent = label; sl.style.color = color;
+    document.getElementById('score-card').style.display = '';
+  } else {
+    document.getElementById('score-card').style.display = 'none';
+  }
+
+  document.getElementById('s-words').textContent = d.word_count;
+  document.getElementById('s-tech').textContent  = d.found_tech.length;
+  document.getElementById('s-soft').textContent  = d.found_soft.length;
+  document.getElementById('s-miss').textContent  = d.missing_keywords.length;
+
+  // Sections
+  const icons = { education:'🎓', experience:'💼', skills:'🛠️', projects:'💡', certifications:'🏆', summary:'📝' };
+  document.getElementById('sec-grid').innerHTML = Object.entries(d.sections).map(([k,v]) =>
+    `<div class="sec-chip ${v?'ok':'no'}">${icons[k]||'📌'} ${k.charAt(0).toUpperCase()+k.slice(1)} ${v?'✅':'❌'}</div>`
+  ).join('');
+
+  // Keywords
+  document.getElementById('matched-pills').innerHTML = d.matched_keywords.length
+    ? d.matched_keywords.map(k=>`<span class="pill found">${k}</span>`).join('')
+    : '<span style="font-size:.82rem;color:var(--ink-3)">No JD provided or no matches</span>';
+
+  document.getElementById('missing-pills').innerHTML = d.missing_keywords.length
+    ? d.missing_keywords.map(k=>`<span class="pill missing">${k}</span>`).join('')
+    : '<span style="font-size:.82rem;color:var(--ink-3)">None — great coverage!</span>';
+
+  document.getElementById('soft-pills').innerHTML = d.found_soft.length
+    ? d.found_soft.map(k=>`<span class="pill soft">${k}</span>`).join('')
+    : '<span style="font-size:.82rem;color:var(--ink-3)">No soft skills detected</span>';
+
+  document.getElementById('kw-card').style.display = d.score !== null ? '' : 'none';
+
+  // Suggestions
+  const sl = document.getElementById('sug-list');
+  if (!d.suggestions.length) {
+    sl.innerHTML = '<p style="color:var(--green);font-size:.9rem">🎉 Your resume looks great! No major issues found.</p>';
+  } else {
+    sl.innerHTML = d.suggestions.map(s =>
+      `<div class="suggestion">
+        <div class="sug-icon">${s.icon}</div>
+        <div>
+          <div class="sug-title">${s.title} <span class="badge ${s.priority}">${s.priority.toUpperCase()}</span></div>
+          <div class="sug-detail">${s.detail}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior:'smooth' });
+}
+</script>
+</body>
+</html>
